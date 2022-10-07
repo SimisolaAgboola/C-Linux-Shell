@@ -22,6 +22,12 @@ using namespace std;
 int main () {
     for (;;) {
         // need date/time, username, and absolute path to current dir
+        //getenv("USER"), time()+ctime(), getcwd();
+        char* username = getenv("USER");
+        printf("\nUSER: @%s", username);
+        char cwd[1024];
+        getcwd(cwd, sizeof(cwd));
+        printf("\nDir: %s\n", cwd);
         cout << YELLOW << "Shell$" << NC << " ";
         
         // get user inputted command
@@ -54,17 +60,30 @@ int main () {
         //     cerr << endl;
         // }
 
+        pid_t pid;
+        
         // fork to create child
-        pid_t pid = fork();
+        pid = fork();
+
         if (pid < 0) {  // error check
             perror("fork");
             exit(2);
         }
 
         if (pid == 0) {  // if child, exec to run command
-            // run single commands with no arguments
-            char* args[] = {(char*) tknr.commands.at(0)->args.at(0).c_str(), nullptr};
-
+            // check for single commands with no arguments
+            //char* args[] = {(char*) tknr.commands.at(0)->args.at(0).c_str(), nullptr};
+            char** args = new char*[(tknr.commands.at(0)->args.size()) + 1];
+            for (size_t i = 0; i < tknr.commands.at(0)->args.size(); i++){
+                args[i] = (char*) tknr.commands.at(0)->args.at(i).c_str();
+            }
+            args[tknr.commands.at(0)->args.size()] = nullptr;
+            // char** args = new char*[(tknr.commands.at(0)->args.size())+1];
+            // size_t i = 0;
+            // for(i = 0; i<tknr.commands.at(0)->args.size(); i++){
+            //     args[i] = (char*)tknr.commands.at(0)->args.at(i).c_str();
+            // }
+            
             if (execvp(args[0], args) < 0) {  // error check
                 perror("execvp");
                 exit(2);

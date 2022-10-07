@@ -180,7 +180,7 @@ int main () {
                     exit(2);
                 }
                 if(p1==0){ //child
-                    
+                    close(3); //close fd 3
                     Command* cmd=tknr.commands[i];
                     if(i==tknr.commands.size()-1){//if this  is the last command
                         if(cmd->hasOutput()){//check for output redirection

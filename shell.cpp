@@ -20,15 +20,31 @@
 using namespace std;
 
 int main () {
+    vector<string> pastdirectories;
+    vector<int> bgcmds;
+    //create copies of stdin/stdout; dup()
+	// int stdin = dup(0);
+	// int stdout = dup(1);
     for (;;) {
+        //check for background processes in loop
+        for(string::size_type i = 0; i < bgcmds.size(); i++){
+            if(waitpid(bgcmds[i], 0, WNOHANG) == bgcmds[i]){ 
+                cout << "Process: " <<bgcmds[i] << " ended" <<endl;
+                //remove the process from list of bg processes
+                bgcmds.erase(bgcmds.begin() +i);
+                i--; 
+            }
+        }
         // need date/time, username, and absolute path to current dir
         //getenv("USER"), time()+ctime(), getcwd();
         char* username = getenv("USER");
-        printf("\nUSER: @%s", username);
+        //printf("\nUSER: @%s", username);
         char cwd[1024];
+        time_t t = time(NULL);
+        string date_time=ctime(&t);
         getcwd(cwd, sizeof(cwd));
-        printf("\nDir: %s\n", cwd);
-        cout << YELLOW << "Shell$" << NC << " ";
+        //printf("\nDir: %s\n", cwd);
+        cout << YELLOW << username << " "<< date_time.substr(0,date_time.size()-1)<<  " " << getcwd(cwd, sizeof(cwd)) << NC << " ";
         
         // get user inputted command
         string input;
@@ -39,6 +55,11 @@ int main () {
             break;
         }
 
+        //implement cd with chdir()
+        //if dir (cd <dir>) is "-", then go to previous working directory
+        //variable storing previous working directory, declare outside loop
+        
+
         // get tokenized commands from user input
         Tokenizer tknr(input);
         if (tknr.hasError()) {  // continue to next prompt if input had an error
@@ -47,28 +68,35 @@ int main () {
 
         // // print out every command token-by-token on individual lines
         // // prints to cerr to avoid influencing autograder
-        // for (auto cmd : tknr.commands) {
-        //     for (auto str : cmd->args) {
-        //         cerr << "|" << str << "| ";
-        //     }
-        //     if (cmd->hasInput()) {
-        //         cerr << "in< " << cmd->in_file << " ";
-        //     }
-        //     if (cmd->hasOutput()) {
-        //         cerr << "out> " << cmd->out_file << " ";
-        //     }
-        //     cerr << endl;
-        // }
+        for (auto cmd : tknr.commands) {
+            for (auto str : cmd->args) {
+                cerr << "|" << str << "| ";
+            }
+            if (cmd->hasInput()) {
+                cerr << "in< " << cmd->in_file << " ";
+            }
+            if (cmd->hasOutput()) {
+                cerr << "out> " << cmd->out_file << " ";
+            }
+            cerr << endl;
+        }
 
-        pid_t pid;
+        //for piping
+        //for cmd: commands
+        //call pipe() to make pipe
+        // fork() in child, redirect stdout, in parent- redirect stdin
+        //add checks for first/last command
         
         // fork to create child
+        pid_t pid;
         pid = fork();
 
         if (pid < 0) {  // error check
             perror("fork");
             exit(2);
         }
+        //add check for bg process -add pid to vector if bg and don't waitpid() in parent
+        
 
         if (pid == 0) {  // if child, exec to run command
             // check for single commands with no arguments
@@ -78,11 +106,9 @@ int main () {
                 args[i] = (char*) tknr.commands.at(0)->args.at(i).c_str();
             }
             args[tknr.commands.at(0)->args.size()] = nullptr;
-            // char** args = new char*[(tknr.commands.at(0)->args.size())+1];
-            // size_t i = 0;
-            // for(i = 0; i<tknr.commands.at(0)->args.size(); i++){
-            //     args[i] = (char*)tknr.commands.at(0)->args.at(i).c_str();
-            // }
+            
+            //if current command is redirected, then open file and dup2 std(in/out) that's being redirected
+            //implement it for both at same time
             
             if (execvp(args[0], args) < 0) {  // error check
                 perror("execvp");
@@ -96,5 +122,6 @@ int main () {
                 exit(status);
             }
         }
+        //restore stdin/stdout (variable will be outside the loop)
     }
 }

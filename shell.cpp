@@ -161,6 +161,7 @@ int main () {
             
         }
         else{//piping 
+            dup2(0,3); //stdin of parent process to next avail file descriptor 3
             pid_t p1;
 
             //loop thru commands vector
@@ -197,14 +198,14 @@ int main () {
                         dup2(fds[1],1); //redirect stdout into write
                         close(fds[0]); //close read
                     } 
-                    char** args = new char*[(tknr.commands.at(i)->args.size()) + 1];
-                    for (size_t j = 0; j < tknr.commands.at(j)->args.size(); j++){
-                        args[j] = (char*) tknr.commands.at(i)->args.at(i).c_str();
-                    }
-                    args[tknr.commands.at(0)->args.size()] = nullptr;
                     
+                    char* args2[100]; //assign random size to prevent dynamic array
+                    for(size_t i=0; i<cmd->args.size(); i++){
+                        args2[i]=(char *)cmd->args[i].c_str();
+                    }
+                    args2[cmd->args.size()]=nullptr;
 
-                    if (execvp(args[0], args) < 0) {  // error check
+                    if (execvp(args2[0], args2) < 0) {  // error check
                         perror("execvp");
                         exit(2);
                     }
@@ -215,7 +216,9 @@ int main () {
                         dup2(fds[0],0); //redirect stdin into read
                         close(fds[0]);
                     }
-                }  
+                }
+                dup2(3,0);
+                close(3);  
                 if(tknr.commands[0]->isBackground()){
                         bgcmds.push_back(p1);   
                 }

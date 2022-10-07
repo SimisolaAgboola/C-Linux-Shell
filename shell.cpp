@@ -160,77 +160,76 @@ int main () {
             
             
         }
-        else{//piping 
-            dup2(0,3); //stdin of parent process to next avail file descriptor 3
-            pid_t p1;
-
-            //loop thru commands vector
-            for(size_t i=0; i<tknr.commands.size(); i++){
+        else{ //multiple commands through pipes
+            dup2(0,3); //stdin of parent process to next available file descriptor 3
+            pid_t pid;
+            for(unsigned long i=0; i<tknr.commands.size(); i++){
                 //create pipe
                 int fds[2];
-                if(i<tknr.commands.size()-1){ //not last command, then create pipe
+                if(i<tknr.commands.size()-1){ //if not last command, create pipe
                     if(pipe(fds)<0){
                         perror("pipe");
                         exit(2);
                     }
                 }
-                p1 = fork();
-                if (p1 < 0) {  // error check
+                
+                pid = fork();
+                if (pid < 0) {  // error check
                     perror("fork");
                     exit(2);
                 }
-                if(p1==0){ //child
-                    close(3); //close fd 3
+
+                if(pid==0){ //child
+                    close(3); //close fd3
                     Command* cmd=tknr.commands[i];
-                    if(i==tknr.commands.size()-1){//if this  is the last command
-                        if(cmd->hasOutput()){//check for output redirection
+                    if(i==tknr.commands.size()-1){//last command
+                        if(cmd->hasOutput()){
                             int fd=open(cmd->out_file.c_str(),O_WRONLY|O_CREAT|O_TRUNC,0644);
                             dup2(fd,1);
                         }
                     }
                     else{
                         if(i==0){
-                            if(cmd->hasInput()){ //check for input redirection in 1st cmd
+                            if(cmd->hasInput()){
                                 int fd=open(cmd->in_file.c_str(), O_RDONLY|O_CREAT,0644);
                                 dup2(fd,0);
                             }
                         }
-                        dup2(fds[1],1); //redirect stdout into write
+                        dup2(fds[1],1); //redirect stdout to write
                         close(fds[0]); //close read
                     } 
-                    
-                    char* args2[100]; //assign random size to prevent dynamic array
-                    for(size_t i=0; i<cmd->args.size(); i++){
+                    int sizeofargs = cmd->args.size(); 
+                    char* args2[100]; //assign static value to prevent using dynamic array
+                    for(int i=0; i<sizeofargs; i++){
                         args2[i]=(char *)cmd->args[i].c_str();
                     }
-                    args2[cmd->args.size()]=nullptr;
+                    args2[sizeofargs]=nullptr;
 
                     if (execvp(args2[0], args2) < 0) {  // error check
                         perror("execvp");
                         exit(2);
                     }
                 }
-                else{
+                else{ //parent
                     if(i<tknr.commands.size()-1){
                         close(fds[1]); //close write
                         dup2(fds[0],0); //redirect stdin into read
                         close(fds[0]);
                     }
                 }
-                dup2(3,0);
-                close(3);  
-                if(tknr.commands[0]->isBackground()){
-                        bgcmds.push_back(p1);   
+            }
+            dup2(3,0);
+            close(3);
+            if(tknr.commands[tknr.commands.size()-1]->isBackground()){
+                bgcmds.push_back(pid);  
+            }
+            else{
+                int status = 0;
+                waitpid(pid, &status, 0); //wait for the last children in the loop to finish
+                if (status > 1) {  // exit if child didn't exec properly
+                    exit(status);
                 }
-                else{
-                    int status = 0;
-                    waitpid(p1, &status, 0);
-                    if (status > 1) {  // exit if child didn't exec properly
-                        exit(status);
-                    }
-                }              
-
             }
         }
-    } 
+    }
 }

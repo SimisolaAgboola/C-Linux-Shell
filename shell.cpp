@@ -85,6 +85,21 @@ int main () {
         //for piping
         //check if 1 command (no piping) or multiple
         if(tknr.commands.size()==1){
+            if(tknr.commands.at(0)->args.at(0)=="cd"){
+                char pathofdir[500];
+                string currdir = getcwd(pathofdir, sizeof(pathofdir));
+                if(tknr.commands.at(0)->args.at(1)=="-"){
+                    if(pastdirectories.size()>0){
+                        chdir(pastdirectories.back().c_str());
+                        pastdirectories.push_back(currdir);
+                    }
+                }
+                else{
+                    pastdirectories.push_back(currdir);
+                    chdir(tknr.commands.at(0)->args.at(1).c_str());
+                }
+                continue;
+            }
             // fork to create child
             pid_t pid;
             pid = fork();
@@ -121,15 +136,21 @@ int main () {
                 }
             }
             else {  // if parent, wait for child to finish
-                int status = 0;
-                waitpid(pid, &status, 0);
-                if (status > 1) {  // exit if child didn't exec properly
-                    exit(status);
+                if(tknr.commands[0]->isBackground()){
+                        bgcmds.push_back(pid);   
+                }
+                else{
+                    int status = 0;
+                    waitpid(pid, &status, 0);
+                    if (status > 1) {  // exit if child didn't exec properly
+                        exit(status);
+                    }
                 }
             }
+               
             //restore stdin/stdout (variable will be outside the loop)
 
-            }
+            
             //else{}//piping}
 
             //for cmd: commands
@@ -139,4 +160,5 @@ int main () {
             
             
         }
+    }
 }

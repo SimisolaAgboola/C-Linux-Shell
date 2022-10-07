@@ -160,5 +160,74 @@ int main () {
             
             
         }
-    }
+        else{//piping 
+            pid_t p1;
+
+            //loop thru commands vector
+            for(size_t i=0; i<tknr.commands.size(); i++){
+                //create pipe
+                int fds[2];
+                if(i<tknr.commands.size()-1){ //not last command, then create pipe
+                    if(pipe(fds)<0){
+                        perror("pipe");
+                        exit(2);
+                    }
+                }
+                p1 = fork();
+                if (p1 < 0) {  // error check
+                    perror("fork");
+                    exit(2);
+                }
+                if(p1==0){ //child
+                    
+                    Command* cmd=tknr.commands[i];
+                    if(i==tknr.commands.size()-1){//if this  is the last command
+                        if(cmd->hasOutput()){//check for output redirection
+                            int fd=open(cmd->out_file.c_str(),O_WRONLY|O_CREAT|O_TRUNC,0644);
+                            dup2(fd,1);
+                        }
+                    }
+                    else{
+                        if(i==0){
+                            if(cmd->hasInput()){ //check for input redirection in 1st cmd
+                                int fd=open(cmd->in_file.c_str(), O_RDONLY|O_CREAT,0644);
+                                dup2(fd,0);
+                            }
+                        }
+                        dup2(fds[1],1); //redirect stdout into write
+                        close(fds[0]); //close read
+                    } 
+                    char** args = new char*[(tknr.commands.at(i)->args.size()) + 1];
+                    for (size_t j = 0; j < tknr.commands.at(j)->args.size(); j++){
+                        args[j] = (char*) tknr.commands.at(i)->args.at(i).c_str();
+                    }
+                    args[tknr.commands.at(0)->args.size()] = nullptr;
+                    
+
+                    if (execvp(args[0], args) < 0) {  // error check
+                        perror("execvp");
+                        exit(2);
+                    }
+                }
+                else{
+                    if(i<tknr.commands.size()-1){
+                        close(fds[1]); //close write
+                        dup2(fds[0],0); //redirect stdin into read
+                        close(fds[0]);
+                    }
+                }  
+                if(tknr.commands[0]->isBackground()){
+                        bgcmds.push_back(p1);   
+                }
+                else{
+                    int status = 0;
+                    waitpid(p1, &status, 0);
+                    if (status > 1) {  // exit if child didn't exec properly
+                        exit(status);
+                    }
+                }              
+
+            }
+        }
+    } 
 }

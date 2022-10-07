@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <string>
+#include <fcntl.h>
 
 #include "Tokenizer.h"
 
@@ -82,46 +83,60 @@ int main () {
         }
 
         //for piping
-        //for cmd: commands
-        //call pipe() to make pipe
-        // fork() in child, redirect stdout, in parent- redirect stdin
-        //add checks for first/last command
-        
-        // fork to create child
-        pid_t pid;
-        pid = fork();
+        //check if 1 command (no piping) or multiple
+        if(tknr.commands.size()==1){
+            // fork to create child
+            pid_t pid;
+            pid = fork();
 
-        if (pid < 0) {  // error check
-            perror("fork");
-            exit(2);
-        }
-        //add check for bg process -add pid to vector if bg and don't waitpid() in parent
-        
-
-        if (pid == 0) {  // if child, exec to run command
-            // check for single commands with no arguments
-            //char* args[] = {(char*) tknr.commands.at(0)->args.at(0).c_str(), nullptr};
-            char** args = new char*[(tknr.commands.at(0)->args.size()) + 1];
-            for (size_t i = 0; i < tknr.commands.at(0)->args.size(); i++){
-                args[i] = (char*) tknr.commands.at(0)->args.at(i).c_str();
-            }
-            args[tknr.commands.at(0)->args.size()] = nullptr;
-            
-            //if current command is redirected, then open file and dup2 std(in/out) that's being redirected
-            //implement it for both at same time
-            
-            if (execvp(args[0], args) < 0) {  // error check
-                perror("execvp");
+            if (pid < 0) {  // error check
+                perror("fork");
                 exit(2);
             }
-        }
-        else {  // if parent, wait for child to finish
-            int status = 0;
-            waitpid(pid, &status, 0);
-            if (status > 1) {  // exit if child didn't exec properly
-                exit(status);
+            //add check for bg process -add pid to vector if bg and don't waitpid() in parent
+
+            if (pid == 0) {  // if child, exec to run command
+                // check for single commands with no arguments
+                //char* args[] = {(char*) tknr.commands.at(0)->args.at(0).c_str(), nullptr};
+                char** args = new char*[(tknr.commands.at(0)->args.size()) + 1];
+                for (size_t i = 0; i < tknr.commands.at(0)->args.size(); i++){
+                    args[i] = (char*) tknr.commands.at(0)->args.at(i).c_str();
+                }
+                args[tknr.commands.at(0)->args.size()] = nullptr;
+                
+                //if current command is redirected, then open file and dup2 std(in/out) that's being redirected
+                //implement it for both at same time
+                if(tknr.commands.at(0)->hasInput()){
+                    int fd=open(tknr.commands.at(0)->in_file.c_str(), O_RDONLY|O_CREAT,0644);
+                    dup2(fd,0);
+                }
+                if(tknr.commands.at(0)->hasOutput()){
+                    int fd=open(tknr.commands.at(0)->out_file.c_str(),O_WRONLY|O_CREAT|O_TRUNC,0644);
+                    dup2(fd,1);
+                }
+                
+                if (execvp(args[0], args) < 0) {  // error check
+                    perror("execvp");
+                    exit(2);
+                }
             }
+            else {  // if parent, wait for child to finish
+                int status = 0;
+                waitpid(pid, &status, 0);
+                if (status > 1) {  // exit if child didn't exec properly
+                    exit(status);
+                }
+            }
+            //restore stdin/stdout (variable will be outside the loop)
+
+            }
+            //else{}//piping}
+
+            //for cmd: commands
+            //call pipe() to make pipe
+            // fork() in child, redirect stdout, in parent- redirect stdin
+            //add checks for first/last command
+            
+            
         }
-        //restore stdin/stdout (variable will be outside the loop)
-    }
 }
